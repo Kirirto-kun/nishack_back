@@ -37,7 +37,7 @@ def _square_polygon_lonlat(lon: float, lat: float, buffer_meters: float) -> list
 def build_avoid_polygons(
     points_latlon: list[tuple[float, float]],
     *,
-    buffer_meters: float = 90.0,
+    buffer_meters: float = 150.0,
 ) -> dict[str, Any]:
     """
     GeoJSON Polygon/MultiPolygon for ORS options.avoid_polygons.
@@ -52,7 +52,17 @@ def build_avoid_polygons(
     if len(rings) == 1:
         return {"type": "Polygon", "coordinates": [rings[0]]}
     # MultiPolygon: one polygon per obstacle, each polygon is [exterior_ring]
-    return {"type": "MultiPolygon", "coordinates": [[[r]] for r in rings]}
+    # GeoJSON MultiPolygon coordinates must be:
+    # [  # multipolygon (list of polygons)
+    #   [  # polygon (list of linear rings)
+    #     [  # linear ring (list of positions)
+    #       [lon, lat], ...
+    #     ]
+    #   ],
+    #   ...
+    # ]
+    # Since r is already a linear ring ([ [lon,lat], ... ]), each polygon is [r].
+    return {"type": "MultiPolygon", "coordinates": [[r] for r in rings]}
 
 
 @dataclass(frozen=True)
@@ -66,7 +76,7 @@ class OrsRouteResult:
     """
     None — avoid_polygons was not sent.
     True — first response OK with avoid_polygons.
-    False — ORS rejected options (e.g. 400); retried without avoidance (same as basic).
+    False — ORS couldn't use avoid_polygons (e.g. 400 or transient 429/502/504); retried without options (same as basic).
     """
 
 
@@ -95,9 +105,12 @@ async def fetch_route(
     timeout = httpx.Timeout(40.0, connect=20.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.post(url, headers=headers, json=body)
+
         # Some ORS plans reject large/complex avoid geometries with 400.
         # In that case degrade gracefully to baseline route instead of 500.
-        if resp.status_code == 400 and "options" in body:
+        transient_statuses = {429, 502, 504}
+
+        if "options" in body and resp.status_code == 400:
             logger.warning(
                 "ORS rejected avoid_polygons (400), retrying without options. Body snippet: %s",
                 (resp.text or "")[:500],
@@ -105,8 +118,19 @@ async def fetch_route(
             applied = False
             body.pop("options", None)
             resp = await client.post(url, headers=headers, json=body)
+        elif "options" in body and resp.status_code in transient_statuses:
+            # Sometimes ORS is temporarily unavailable / throttling. Prefer a usable baseline route.
+            logger.warning(
+                "ORS returned transient error (%s) while using avoid_polygons; retrying without options. Body snippet: %s",
+                resp.status_code,
+                (resp.text or "")[:500],
+            )
+            applied = False
+            body.pop("options", None)
+            resp = await client.post(url, headers=headers, json=body)
         elif sent and resp.is_success:
             applied = True
+
         resp.raise_for_status()
         data = resp.json()
 

@@ -77,6 +77,18 @@ async def ai_route(
     avoid_categories, explanation = await select_avoid_categories(body.user_prompt, found_categories)
     avoid_set = set(avoid_categories)
 
+    # Deterministic safety rule: infrastructure is treated as potentially unsafe (child-safety UX).
+    # If user explicitly asked to not avoid it, keep LLM choice.
+    if "infrastructure" in found_categories and "infrastructure" not in avoid_set:
+        prompt_l = body.user_prompt.lower()
+        explicitly_dont_avoid = ("не обход" in prompt_l or "не избег" in prompt_l) and (
+            "infrastructure" in prompt_l or "инфраструкт" in prompt_l
+        )
+        if not explicitly_dont_avoid:
+            avoid_categories.append("infrastructure")
+            avoid_set.add("infrastructure")
+            explanation = f"{explanation.strip()} Также учтена категория infrastructure как потенциально опасная."
+
     avoided_points: list[tuple[float, float]] = []
     markers: list[MarkerPoint] = []
 
