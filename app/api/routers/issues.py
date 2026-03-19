@@ -13,6 +13,7 @@ from app.db.models.issue import Issue
 from app.db.models.user import User
 from app.db.session import get_db
 from app.schemas.issue import IssueCreate, IssueRead
+from app.services.ai import enqueue_issue_analysis
 
 router = APIRouter(prefix="/issues", tags=["issues"])
 
@@ -104,5 +105,7 @@ async def upload_issue_image(
     issue.image_url = f"/uploads/issues/{issue_id}/{filename}"
     await db.commit()
     await db.refresh(issue)
+    # Fire-and-forget AI analysis on the running event loop.
+    enqueue_issue_analysis(issue_id)
     return issue
 

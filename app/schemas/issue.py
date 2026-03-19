@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.db.models.enums import IssueStatus
@@ -22,4 +24,14 @@ class IssueRead(BaseModel):
     image_url: str | None
     status: IssueStatus
     priority: int
+
+
+class IssueAdminRead(IssueRead):
+    ai_admin_summary: str | None
+    ai_analyzed_at: datetime | None
+    ai_error: str | None
+
+
+class IssueAdminUpdate(BaseModel):
+    status: IssueStatus
 
