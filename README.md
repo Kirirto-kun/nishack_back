@@ -10,7 +10,7 @@ FastAPI + PostgreSQL, развёртывание через Docker Compose.
    cp .env.example .env
    ```
 
-   При необходимости измените логин, пароль и имя БД в `.env`.
+   При необходимости измените логин, пароль и имя БД в `.env`. Обязательно задайте **`JWT_SECRET`** (длинная случайная строка для подписи JWT; см. `.env.example`).
 
 2. Запустите сервисы:
 
@@ -39,6 +39,31 @@ FastAPI + PostgreSQL, развёртывание через Docker Compose.
    Ожидается ответ: `{"status":"ok"}`.
 
 Остановка: `docker compose down` (данные БД сохраняются в volume `postgres_data`).
+
+## Авторизация (JWT)
+
+Эндпоинты:
+
+- `POST /auth/register` — JSON `{"email":"user@example.com","password":"min8chars"}` (роль по умолчанию `citizen`).
+- `POST /auth/login` — форма OAuth2: поле **`username`** = email, **`password`** = пароль (удобно из Swagger «Authorize»).
+- `GET /users/me` — только с заголовком `Authorization: Bearer <access_token>`; без токена ответ **401**.
+
+Пример (`curl`):
+
+```bash
+curl -s -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"user@example.com\",\"password\":\"secretpass\"}"
+
+curl -s -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=user@example.com&password=secretpass"
+
+# подставьте access_token из ответа login:
+curl -s http://localhost:8000/users/me -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+Зависимости для роутов модератора: `get_current_moderator` (роль `moderator`, иначе **403**) — в [`app/api/deps.py`](app/api/deps.py).
 
 ## Подключение к PostgreSQL (DBeaver и др.)
 

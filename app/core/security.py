@@ -1,5 +1,4 @@
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -26,10 +25,11 @@ def create_access_token(
     if expires_delta is None:
         expires_delta = timedelta(minutes=settings.access_token_expire_minutes)
     now = datetime.now(UTC)
-    to_encode: dict[str, Any] = {
+    exp = now + expires_delta
+    to_encode = {
         "sub": str(subject_user_id),
-        "exp": now + expires_delta,
-        "iat": now,
+        "exp": int(exp.timestamp()),
+        "iat": int(now.timestamp()),
     }
     return jwt.encode(
         to_encode,
