@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, Enum, Float, ForeignKey, SmallInteger, String, Text
+from sqlalchemy import CheckConstraint, DateTime, Enum, Float, ForeignKey, SmallInteger, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -30,5 +31,8 @@ class Issue(Base):
         nullable=False,
     )
     priority: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    ai_admin_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ai_analyzed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ai_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     user: Mapped[User] = relationship("User", back_populates="issues")

@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     upload_dir: str = "/data/uploads"
+    openai_api_key: str
+    openai_model: str = "gpt-4o-mini"
 
     @computed_field  # type: ignore[prop-decorator]
     @property
