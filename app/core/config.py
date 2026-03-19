@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     ors_api_key: str = ""
     ors_base_url: str = "https://api.openrouteservice.org"
 
+    # OpenWeatherMap (current weather for fire-risk demo / heatmap)
+    openweather_api_key: str = ""
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def database_url(self) -> str:
