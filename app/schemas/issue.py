@@ -36,3 +36,18 @@ class IssueAdminRead(IssueRead):
 class IssueAdminUpdate(BaseModel):
     status: IssueStatus
 
+
+class IssuePublicMapRead(BaseModel):
+    """Публичная карточка заявки для городской карты (без user_id и description)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    latitude: float
+    longitude: float
+    image_url: str | None
+    priority: int
+    category: str | None = None
+    status: IssueStatus
+

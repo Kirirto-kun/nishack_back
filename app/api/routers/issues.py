@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
-from sqlalchemy import select
+from geoalchemy2.shape import from_shape
+from shapely.geometry import Point
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -12,7 +14,7 @@ from app.db.models.enums import IssueStatus
 from app.db.models.issue import Issue
 from app.db.models.user import User
 from app.db.session import get_db
-from app.schemas.issue import IssueCreate, IssueRead
+from app.schemas.issue import IssueCreate, IssuePublicMapRead, IssueRead
 from app.services.ai import enqueue_issue_analysis
 
 router = APIRouter(prefix="/issues", tags=["issues"])
@@ -44,12 +46,14 @@ async def create_issue(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> Issue:
+    geom = from_shape(Point(body.longitude, body.latitude), srid=4326)
     issue = Issue(
         user_id=user.id,
         title=body.title,
         description=body.description,
         latitude=body.latitude,
         longitude=body.longitude,
+        geom=geom,
         image_url=None,
         status=IssueStatus.pending_ai,
         priority=1,
@@ -58,6 +62,25 @@ async def create_issue(
     await db.commit()
     await db.refresh(issue)
     return issue
+
+
+_PUBLIC_MAP_STATUSES: tuple[IssueStatus, ...] = (IssueStatus.approved, IssueStatus.in_progress)
+
+
+@router.get("/public", response_model=list[IssuePublicMapRead])
+async def list_public_issues_for_map(
+    db: AsyncSession = Depends(get_db),
+) -> list[Issue]:
+    """Все заявки, видимые горожанам на карте (без авторизации)."""
+    stmt = (
+        select(Issue)
+        .where(Issue.status.in_(_PUBLIC_MAP_STATUSES))
+        .where(Issue.latitude.is_not(None))
+        .where(Issue.longitude.is_not(None))
+        .order_by(desc(Issue.priority), desc(Issue.id))
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
 
 
 @router.get("/my", response_model=list[IssueRead])

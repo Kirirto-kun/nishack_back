@@ -27,7 +27,8 @@ async def basic_route(
     _user: Annotated[User, Depends(get_current_user)],
 ) -> list[list[float]]:
     # Same payload shape, but ignores AI and avoid_polygons.
-    return await fetch_route(body.start, body.end, avoid_polygons=None)
+    res = await fetch_route(body.start, body.end, avoid_polygons=None)
+    return res.route_coords
 
 
 @router.post("/ai_route", response_model=AiRouteResponse)
@@ -101,12 +102,13 @@ async def ai_route(
         )
 
     avoid_polygons = build_avoid_polygons(avoided_points) if avoided_points else None
-    route_coords = await fetch_route(body.start, body.end, avoid_polygons)
+    ors = await fetch_route(body.start, body.end, avoid_polygons)
 
     return AiRouteResponse(
-        route_coords=route_coords,
+        route_coords=ors.route_coords,
         explanation=explanation,
         avoided_categories=avoid_categories,
         markers=markers,
+        ors_avoid_applied=ors.avoid_polygons_applied,
     )
 

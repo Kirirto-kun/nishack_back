@@ -24,4 +24,6 @@ class AiRouteResponse(BaseModel):
     explanation: str
     avoided_categories: list[str]
     markers: list[MarkerPoint]
+    ors_avoid_applied: bool | None = None
+    """None — зоны избегания не отправлялись; True — ORS принял avoid_polygons; False — отклонил, маршрут без обхода."""
 
