@@ -24,6 +24,7 @@ class IssueRead(BaseModel):
     image_url: str | None
     status: IssueStatus
     priority: int
+    category: str | None = None
 
 
 class IssueAdminRead(IssueRead):

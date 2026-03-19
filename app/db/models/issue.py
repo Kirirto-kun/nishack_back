@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from geoalchemy2 import Geometry
 from sqlalchemy import CheckConstraint, DateTime, Enum, Float, ForeignKey, SmallInteger, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,7 +26,9 @@ class Issue(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    geom: Mapped[object | None] = mapped_column(Geometry(geometry_type="POINT", srid=4326), nullable=True)
     status: Mapped[IssueStatus] = mapped_column(
         Enum(IssueStatus, name="issuestatus", native_enum=True),
         nullable=False,

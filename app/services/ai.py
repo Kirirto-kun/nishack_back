@@ -21,6 +21,10 @@ class _AIResult(BaseModel):
     priority: int = Field(ge=1, le=5)
     is_false_call: bool
     admin_summary: str = Field(min_length=1, max_length=4000)
+    category: str = Field(
+        description="Issue category: infrastructure|danger|trash|other",
+        pattern=r"^(infrastructure|danger|trash|other)$",
+    )
 
 
 @dataclass(frozen=True)
@@ -82,7 +86,8 @@ async def analyze_issue_with_ai(issue_id: int) -> None:
                 "{\n"
                 '  "priority": 1-5,\n'
                 '  "is_false_call": true|false,\n'
-                '  "admin_summary": "короткое, практичное резюме для акимата: что случилось, риск, что делать"\n'
+                '  "admin_summary": "короткое, практичное резюме для акимата: что случилось, риск, что делать",\n'
+                '  "category": "infrastructure|danger|trash|other"\n'
                 "}\n\n"
                 f"Заголовок: {issue.title}\n"
                 f"Описание: {issue.description}\n"
@@ -119,6 +124,7 @@ async def analyze_issue_with_ai(issue_id: int) -> None:
             issue.ai_admin_summary = ai.admin_summary.strip()
             issue.ai_analyzed_at = datetime.now(tz=timezone.utc)
             issue.ai_error = None
+            issue.category = ai.category
             issue.status = IssueStatus.rejected if ai.is_false_call else IssueStatus.approved
             await db.commit()
         except (OSError, json.JSONDecodeError, ValidationError) as e:

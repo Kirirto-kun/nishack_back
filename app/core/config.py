@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     upload_dir: str = "/data/uploads"
     openai_api_key: str
     openai_model: str = "gpt-4o-mini"
+    ors_api_key: str = ""
+    ors_base_url: str = "https://api.openrouteservice.org"
 
     @computed_field  # type: ignore[prop-decorator]
     @property

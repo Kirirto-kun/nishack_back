@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routers import admin, auth, issues, users
+from app.api.routers import admin, auth, issues, routes, users
 from app.core.config import get_settings
 from app.db.session import engine
 
@@ -30,6 +30,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(issues.router)
+app.include_router(routes.router)
 app.include_router(users.router)
 
 settings = get_settings()
