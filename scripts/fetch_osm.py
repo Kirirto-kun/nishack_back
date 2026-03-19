@@ -19,6 +19,7 @@ if str(_BACK_ROOT) not in sys.path:
 
 from app.db.models.poi import Poi  # noqa: E402
 from app.db.session import AsyncSessionLocal  # noqa: E402
+from app.services.osm_poi import build_overpass_query, map_osm_tags_to_category  # noqa: E402
 
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
@@ -33,35 +34,13 @@ class BBox:
 
 
 def _overpass_q(bbox: BBox) -> str:
-    # NOTE: Overpass bbox order is: south,west,north,east (lat,lon,lat,lon)
-    s, w, n, e = bbox.min_lat, bbox.min_lon, bbox.max_lat, bbox.max_lon
-    return f"""
-[out:json][timeout:60];
-(
-  node["amenity"~"bar|pub|nightclub|school|kindergarten"]( {s},{w},{n},{e} );
-  node["leisure"~"park|garden"]( {s},{w},{n},{e} );
-  node["shop"~"alcohol|convenience"]( {s},{w},{n},{e} );
-);
-out body tags;
-"""
+    return build_overpass_query(
+        bbox.min_lat, bbox.min_lon, bbox.max_lat, bbox.max_lon, timeout_sec=60
+    )
 
 
 def _map_category(tags: dict[str, str]) -> str | None:
-    amenity = tags.get("amenity")
-    leisure = tags.get("leisure")
-    shop = tags.get("shop")
-
-    if amenity in {"bar", "pub", "nightclub"}:
-        return "liquor_store"
-    if shop == "alcohol":
-        return "liquor_store"
-    if amenity in {"school", "kindergarten"}:
-        return "school"
-    if leisure in {"park", "garden"}:
-        return "park"
-    if shop == "convenience":
-        return "convenience"
-    return None
+    return map_osm_tags_to_category(tags)
 
 
 async def fetch_overpass(client: httpx.AsyncClient, bbox: BBox) -> dict[str, Any]:

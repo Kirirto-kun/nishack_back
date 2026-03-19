@@ -12,7 +12,7 @@ class AiRouteRequest(BaseModel):
 
 
 class MarkerPoint(BaseModel):
-    kind: str = Field(pattern=r"^(issue|poi)$")
+    kind: str = Field(pattern=r"^(issue|poi|osm_poi)$")
     id: int
     category: str
     lat: float
@@ -20,6 +20,10 @@ class MarkerPoint(BaseModel):
     title: str = Field(min_length=1, max_length=500, description="Название заявки или POI для карты")
     image_url: str | None = None
     priority: int | None = Field(default=None, ge=1, le=5, description="Только для issue")
+    source: str | None = Field(
+        default=None,
+        description="db — POI из БД; live_osm — точка из Overpass при построении маршрута",
+    )
 
 
 class AiRouteResponse(BaseModel):

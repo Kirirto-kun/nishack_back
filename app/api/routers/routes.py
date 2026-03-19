@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -15,6 +16,7 @@ from app.db.models.user import User
 from app.db.session import get_db
 from app.schemas.route import AiRouteRequest, AiRouteResponse, MarkerPoint
 from app.services.ors import build_avoid_polygons, fetch_route
+from app.services.osm_poi import fetch_pois_in_bbox
 from app.services.route_ai import select_avoid_categories
 
 router = APIRouter(prefix="/api/routes", tags=["routes"])
@@ -37,8 +39,8 @@ async def ai_route(
     db: Annotated[AsyncSession, Depends(get_db)],
     _user: Annotated[User, Depends(get_current_user)],
 ) -> AiRouteResponse:
-    # BBox + padding (degrees)
-    pad = 0.01
+    # BBox + padding (degrees) — чуть шире, чтобы захватить POI в стороне от прямой A–B
+    pad = 0.015
     min_lat = min(body.start.lat, body.end.lat) - pad
     max_lat = max(body.start.lat, body.end.lat) + pad
     min_lon = min(body.start.lon, body.end.lon) - pad
@@ -54,10 +56,13 @@ async def ai_route(
     )
     pois_stmt = select(Poi).where(ST_Intersects(Poi.geom, envelope))
 
+    live_osm_task = asyncio.create_task(fetch_pois_in_bbox(min_lat, min_lon, max_lat, max_lon))
+
     issues_res = await db.execute(issues_stmt)
     pois_res = await db.execute(pois_stmt)
     issues = list(issues_res.scalars().all())
     pois = list(pois_res.scalars().all())
+    live_osm = await live_osm_task
 
     categories: set[str] = set()
     for it in issues:
@@ -65,6 +70,8 @@ async def ai_route(
             categories.add(it.category)
     for it in pois:
         categories.add(it.category)
+    for lp in live_osm:
+        categories.add(lp.category)
     found_categories = sorted(categories)
 
     avoid_categories, explanation = await select_avoid_categories(body.user_prompt, found_categories)
@@ -105,6 +112,26 @@ async def ai_route(
                 title=poi_title,
                 image_url=None,
                 priority=None,
+                source="db",
+            )
+        )
+
+    for lp in live_osm:
+        if lp.category not in avoid_set:
+            continue
+        avoided_points.append((lp.lat, lp.lon))
+        poi_title = (lp.name or "").strip() or f"OSM · {lp.category}"
+        markers.append(
+            MarkerPoint(
+                kind="osm_poi",
+                id=int(lp.osm_id),
+                category=lp.category,
+                lat=lp.lat,
+                lon=lp.lon,
+                title=poi_title[:500],
+                image_url=None,
+                priority=None,
+                source="live_osm",
             )
         )
 
