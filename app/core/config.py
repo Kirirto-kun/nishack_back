@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
+    upload_dir: str = "/data/uploads"
 
     @computed_field  # type: ignore[prop-decorator]
     @property

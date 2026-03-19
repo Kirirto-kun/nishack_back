@@ -5,7 +5,11 @@ from passlib.context import CryptContext
 
 from app.core.config import get_settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(
+    # Prefer argon2 for new hashes; still verify legacy bcrypt hashes.
+    schemes=["argon2", "bcrypt"],
+    deprecated="auto",
+)
 
 
 def hash_password(plain_password: str) -> str:

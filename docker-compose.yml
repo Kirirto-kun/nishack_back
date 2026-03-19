@@ -33,6 +33,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - uploads_data:/data/uploads
 
 volumes:
   postgres_data:
+  uploads_data:
