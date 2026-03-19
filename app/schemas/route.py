@@ -17,6 +17,9 @@ class MarkerPoint(BaseModel):
     category: str
     lat: float
     lon: float
+    title: str = Field(min_length=1, max_length=500, description="Название заявки или POI для карты")
+    image_url: str | None = None
+    priority: int | None = Field(default=None, ge=1, le=5, description="Только для issue")
 
 
 class AiRouteResponse(BaseModel):

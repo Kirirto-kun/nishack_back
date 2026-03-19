@@ -84,6 +84,9 @@ async def ai_route(
                 category=it.category,
                 lat=float(it.latitude),
                 lon=float(it.longitude),
+                title=it.title,
+                image_url=it.image_url,
+                priority=int(it.priority),
             )
         )
 
@@ -91,6 +94,7 @@ async def ai_route(
         if p.category not in avoid_set:
             continue
         avoided_points.append((float(p.lat), float(p.lon)))
+        poi_title = (p.name or "").strip() or f"POI · {p.category}"
         markers.append(
             MarkerPoint(
                 kind="poi",
@@ -98,6 +102,9 @@ async def ai_route(
                 category=p.category,
                 lat=float(p.lat),
                 lon=float(p.lon),
+                title=poi_title,
+                image_url=None,
+                priority=None,
             )
         )
 
