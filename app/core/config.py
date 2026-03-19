@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
 
+    jwt_secret: str
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def database_url(self) -> str:
