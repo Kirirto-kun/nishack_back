@@ -8,19 +8,26 @@ from shapely.geometry import Point
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_optional_user
 from app.core.config import get_settings
-from app.db.models.enums import IssueStatus
+from app.db.models.enums import IssueStatus, UserRole
 from app.db.models.issue import Issue
+from app.db.models.issue_status_events import IssueStatusEvent
 from app.db.models.user import User
 from app.db.session import get_db
-from app.schemas.issue import IssueCreate, IssuePublicMapRead, IssueRead
+from app.schemas.issue import IssueCreate, IssuePublicMapRead, IssueRead, IssueTrackingEvent, IssueTrackingRead
 from app.services.ai import enqueue_issue_analysis
 
 router = APIRouter(prefix="/issues", tags=["issues"])
 
 _ALLOWED_IMAGE_TYPES: set[str] = {"image/jpeg", "image/png", "image/webp"}
 _MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MiB
+
+_PUBLIC_TRACKING_STATUSES: tuple[IssueStatus, ...] = (
+    IssueStatus.approved,
+    IssueStatus.in_progress,
+    IssueStatus.resolved,
+)
 
 
 def _safe_filename(name: str) -> str:
@@ -131,4 +138,53 @@ async def upload_issue_image(
     # Fire-and-forget AI analysis on the running event loop.
     enqueue_issue_analysis(issue_id)
     return issue
+
+
+@router.get("/{issue_id}/tracking", response_model=IssueTrackingRead)
+async def issue_tracking(
+    issue_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
+) -> IssueTrackingRead:
+    issue = (await db.execute(select(Issue).where(Issue.id == issue_id))).scalar_one_or_none()
+    if issue is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+
+    # Allow anonymous tracking only for statuses that are visible publicly on the city map.
+    if issue.status not in _PUBLIC_TRACKING_STATUSES:
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authorization required")
+        if user.id != issue.user_id and user.role != UserRole.moderator:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    events_res = await db.execute(
+        select(IssueStatusEvent)
+        .where(IssueStatusEvent.issue_id == issue_id)
+        .order_by(IssueStatusEvent.changed_at.asc())
+    )
+
+    events = [
+        IssueTrackingEvent(
+            from_status=e.from_status,
+            to_status=e.to_status,
+            changed_at=e.changed_at,
+            actor_role=e.actor_role,
+            actor_id=e.actor_id,
+        )
+        for e in events_res.scalars().all()
+    ]
+
+    return IssueTrackingRead(
+        issue_id=issue.id,
+        current_status=issue.status,
+        title=issue.title,
+        description=issue.description,
+        image_url=issue.image_url,
+        priority=issue.priority,
+        category=issue.category,
+        ai_admin_summary=issue.ai_admin_summary,
+        ai_analyzed_at=issue.ai_analyzed_at,
+        ai_error=issue.ai_error,
+        events=events,
+    )
 

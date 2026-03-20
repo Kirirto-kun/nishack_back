@@ -14,6 +14,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.models.enums import IssueStatus
 from app.db.models.issue import Issue
+from app.db.models.issue_status_events import IssueStatusEvent
 from app.db.session import AsyncSessionLocal
 
 
@@ -68,9 +69,20 @@ async def analyze_issue_with_ai(issue_id: int) -> None:
         if issue is None:
             return
 
+        prev_status = issue.status
+
         if not issue.image_url:
             issue.ai_error = "No image_url set; upload an image first."
             issue.ai_analyzed_at = datetime.now(tz=timezone.utc)
+            db.add(
+                IssueStatusEvent(
+                    issue_id=issue.id,
+                    from_status=prev_status,
+                    to_status=issue.status,
+                    actor_role="system",
+                    actor_id=None,
+                )
+            )
             await db.commit()
             return
 
@@ -126,14 +138,41 @@ async def analyze_issue_with_ai(issue_id: int) -> None:
             issue.ai_error = None
             issue.category = ai.category
             issue.status = IssueStatus.rejected if ai.is_false_call else IssueStatus.approved
+            db.add(
+                IssueStatusEvent(
+                    issue_id=issue.id,
+                    from_status=prev_status,
+                    to_status=issue.status,
+                    actor_role="system",
+                    actor_id=None,
+                )
+            )
             await db.commit()
         except (OSError, json.JSONDecodeError, ValidationError) as e:
             issue.ai_error = f"{type(e).__name__}: {e}"
             issue.ai_analyzed_at = datetime.now(tz=timezone.utc)
+            db.add(
+                IssueStatusEvent(
+                    issue_id=issue.id,
+                    from_status=prev_status,
+                    to_status=issue.status,
+                    actor_role="system",
+                    actor_id=None,
+                )
+            )
             await db.commit()
         except Exception as e:  # noqa: BLE001
             issue.ai_error = f"UnexpectedError: {type(e).__name__}: {e}"
             issue.ai_analyzed_at = datetime.now(tz=timezone.utc)
+            db.add(
+                IssueStatusEvent(
+                    issue_id=issue.id,
+                    from_status=prev_status,
+                    to_status=issue.status,
+                    actor_role="system",
+                    actor_id=None,
+                )
+            )
             await db.commit()
 
 

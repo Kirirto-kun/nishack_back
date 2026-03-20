@@ -30,7 +30,7 @@ class Issue(Base):
     image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     geom: Mapped[object | None] = mapped_column(Geometry(geometry_type="POINT", srid=4326), nullable=True)
     status: Mapped[IssueStatus] = mapped_column(
-        Enum(IssueStatus, name="issuestatus", native_enum=True),
+        Enum(IssueStatus, name="issuestatus", native_enum=True, create_type=False),
         nullable=False,
     )
     priority: Mapped[int] = mapped_column(SmallInteger, nullable=False)
@@ -39,3 +39,8 @@ class Issue(Base):
     ai_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     user: Mapped[User] = relationship("User", back_populates="issues")
+    status_events: Mapped[list["IssueStatusEvent"]] = relationship(
+        "IssueStatusEvent",
+        back_populates="issue",
+        cascade="all, delete-orphan",
+    )

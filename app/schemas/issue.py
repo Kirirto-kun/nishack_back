@@ -31,6 +31,7 @@ class IssueAdminRead(IssueRead):
     ai_admin_summary: str | None
     ai_analyzed_at: datetime | None
     ai_error: str | None
+    reporter_email: str | None = Field(default=None, description="Email автора заявки (для модерации)")
 
 
 class IssueAdminUpdate(BaseModel):
@@ -50,4 +51,26 @@ class IssuePublicMapRead(BaseModel):
     priority: int
     category: str | None = None
     status: IssueStatus
+
+
+class IssueTrackingEvent(BaseModel):
+    from_status: IssueStatus
+    to_status: IssueStatus
+    changed_at: datetime
+    actor_role: str | None = None
+    actor_id: int | None = None
+
+
+class IssueTrackingRead(BaseModel):
+    issue_id: int
+    current_status: IssueStatus
+    title: str
+    description: str
+    image_url: str | None
+    priority: int
+    category: str | None = None
+    ai_admin_summary: str | None = None
+    ai_analyzed_at: datetime | None = None
+    ai_error: str | None = None
+    events: list[IssueTrackingEvent] = []
 

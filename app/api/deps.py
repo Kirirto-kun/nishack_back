@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy import select
@@ -45,3 +45,26 @@ async def get_current_moderator(
             detail="Moderator role required",
         )
     return user
+
+
+async def get_optional_user(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> User | None:
+    """Optional bearer auth for endpoints that support public access.
+
+    Returns None if auth is missing/invalid.
+    """
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.lower().startswith("bearer "):
+        return None
+
+    token = auth_header.split(" ", 1)[1].strip()
+    try:
+        sub = decode_access_token(token)
+        user_id = int(sub)
+    except (JWTError, ValueError):
+        return None
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    return result.scalar_one_or_none()
